@@ -1,0 +1,96 @@
+* {
+	box-sizing: border-box;
+}
+
+body {
+	min-height: 100vh;
+	margin: 0;
+	padding: 32px 16px;
+	background: #f3f4f6;
+	color: #1f2937;
+	font-family: Arial, sans-serif;
+}
+
+h1 {
+	max-width: 480px;
+	margin: 0 auto 20px;
+	font-size: 28px;
+	text-align: center;
+}
+
+#RegistrationForm {
+	max-width: 480px;
+	margin: 0 auto;
+	padding: 24px;
+	border: 1px solid #e5e7eb;
+	border-radius: 8px;
+	background: #ffffff;
+	box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+#RegistrationForm label,
+#RegistrationForm select,
+#RegistrationForm input {
+	display: block;
+	width: 100%;
+}
+
+#RegistrationForm label {
+	margin: 16px 0 6px;
+	font-size: 14px;
+	font-weight: 600;
+}
+
+#RegistrationForm select,
+#RegistrationForm input {
+	min-height: 42px;
+	padding: 10px 12px;
+	border: 1px solid #cbd5e1;
+	border-radius: 5px;
+	background: #ffffff;
+	color: #1f2937;
+	font: inherit;
+}
+
+#RegistrationForm select:focus,
+#RegistrationForm input:focus {
+	border-color: #2563eb;
+	outline: 3px solid rgba(37, 99, 235, 0.15);
+}
+
+#studentFields,
+#teacherFields {
+	margin-top: 4px;
+}
+
+#RegistrationForm button {
+	width: 100%;
+	min-height: 42px;
+	margin-top: 24px;
+	border: 0;
+	border-radius: 5px;
+	background: #2563eb;
+	color: #ffffff;
+	cursor: pointer;
+	font: inherit;
+	font-weight: 600;
+}
+
+#RegistrationForm button:hover {
+	background: #1d4ed8;
+}
+
+#RegistrationForm button:focus-visible {
+	outline: 3px solid rgba(37, 99, 235, 0.3);
+	outline-offset: 2px;
+}
+
+@media (max-width: 520px) {
+	body {
+		padding: 24px 12px;
+	}
+
+	#RegistrationForm {
+		padding: 20px;
+	}
+}

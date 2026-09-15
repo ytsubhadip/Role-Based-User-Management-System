@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='css/loginpage.css') }}">
+</head>
+
+<body>
+
+    <form method="post" id="userLoginForm">
+        <h1 style="text-align: center;">Login</h1>
+       
+        <label for="email">Email</label>
+        <input type="email" placeholder="Enter your email" id="UserEmail" required>
+
+        <label for="password">password</label>
+        <input type="text" placeholder="Enter your password" id="UserPassword" required>
+
+        <button type="submit">submit</button>
+        <p id="loginStatus" role="alert" aria-live="polite"></p>
+    </form>
+
+    <script src="/static/js/userLogin.js"></script>
+</body>
+
+</html>

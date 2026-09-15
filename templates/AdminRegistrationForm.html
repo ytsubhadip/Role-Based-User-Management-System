@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Registration</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='css/adminRegistration.css') }}">
+</head> 
+
+<body>
+    <h1> Admin Creater User</h1>
+    <form  method="post" id="AdminRegistrationForm">
+
+
+
+        <select name="role" id="role" required>
+            <option value="">-- Select Role --</option>
+            <option value="teacher">Teacher</option>
+            <option value="student">Student</option>
+        </select>
+
+        <label>Full Name</label>
+        <input type="text" name="full_name" id="userFullName" required>
+
+        <label>Email</label>
+        <input type="email" name="email" id="UserEmail" required>
+
+        <div id="studentFields" style="display: none;">
+            <label for="standerd">standerd</label>
+            <input type="text" id="Standerd" name="standerd">
+        </div>
+
+        <div id="teacherFields" style="display: none;">
+            <label for="Subject">Subject</label>
+            <input type="text" id="Subject" name="Subject">
+        </div>
+
+        <button type="submit">Create</button>
+        <p id="adminRegistrationStatus" role="alert" aria-live="polite"></p>
+    </form>
+
+
+    <script>
+        const roleSelect = document.getElementById("role");
+
+        const studentFields = document.getElementById("studentFields");
+        const teacherFields = document.getElementById("teacherFields");
+
+        roleSelect.addEventListener("change", function () {
+            const selectedRole = roleSelect.value;
+            
+            // Hide both sections first
+            studentFields.style.display = "none";
+            teacherFields.style.display = "none";
+
+            // Show fields according to selected role
+            if (selectedRole === "student") {
+                studentFields.style.display = "block";
+            } else if (selectedRole === "teacher") {
+                teacherFields.style.display = "block";
+            }
+        });
+    </script>
+    <script src="/static/js/adminRegistration.js"></script>
+</body>
+
+</html>
