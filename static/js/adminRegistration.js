@@ -10,7 +10,7 @@ AdminRegistrationForm.addEventListener("submit", async function (e) {
         role: document.getElementById("role").value,
         full_name: document.getElementById("userFullName").value,
         email: document.getElementById("UserEmail").value,
-        standard: document.getElementById("Standerd").value,
+        standard: document.getElementById("standard").value,
         subject: document.getElementById("Subject").value
     }
 

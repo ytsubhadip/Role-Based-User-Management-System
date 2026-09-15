@@ -59,4 +59,10 @@ def verify_first_time_otp(
     user.email_verified = True
     user.otp_hash = None
     user.otp_expiration = None
-    us
+    user.otp_attempts = 0
+    db.commit()
+
+    return {
+        "message": "OTP verified successfully",
+        "user_id": user.id
+    }
