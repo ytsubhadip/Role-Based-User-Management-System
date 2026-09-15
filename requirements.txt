@@ -5,3 +5,5 @@ pymysql
 python-dotenv
 pwdlib
 email-validator
+pyjwt
+python-multipart

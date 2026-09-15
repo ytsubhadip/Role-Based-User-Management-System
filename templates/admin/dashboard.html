@@ -1,0 +1,547 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - RBAC Management{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Admin Management Portal</h1>
+            <p class="page-subtitle">Full access over Teachers, Students, Assignments, and System Roles</p>
+        </div>
+        <div style="display: flex; gap: 0.75rem;">
+            <a href="/admin/create-user" class="btn btn-primary">+ Create Teacher / Student</a>
+            <button class="btn btn-secondary" onclick="loadAllAdminData()">↻ Refresh</button>
+        </div>
+    </div>
+
+    <!-- Alert / Toast -->
+    <div id="adminToast" style="display: none;" class="alert"></div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Total Users</div>
+            <div class="stat-value" id="statTotalUsers">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Teachers</div>
+            <div class="stat-value" id="statTeachers" style="color: #2563eb;">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Students</div>
+            <div class="stat-value" id="statStudents" style="color: #059669;">0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Unassigned Students</div>
+            <div class="stat-value" id="statUnassigned" style="color: #d97706;">0</div>
+        </div>
+    </div>
+
+    <!-- Tabs Navigation -->
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('tabUsers', this)">All Users Management</button>
+        <button class="tab-btn" onclick="switchTab('tabAssignments', this)">Teachers & Assigned Students</button>
+        <button class="tab-btn" onclick="switchTab('tabStudents', this)">Students Directory</button>
+    </div>
+
+    <!-- TAB 1: ALL USERS -->
+    <div id="tabUsers" class="tab-panel active">
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">System Users</div>
+                <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                    <input type="text" id="userSearchInput" class="form-control" placeholder="Search by name or email..." style="width: 250px;" oninput="filterUsersTable()">
+                    <select id="roleFilterSelect" class="form-control" style="width: 150px;" onchange="filterUsersTable()">
+                        <option value="">All Roles</option>
+                        <option value="admin">Admin</option>
+                        <option value="teacher">Teacher</option>
+                        <option value="student">Student</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Role</th>
+                            <th>Specialization / Grade</th>
+                            <th>Assigned Teacher</th>
+                            <th>Status</th>
+                            <th style="text-align: right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBody">
+                        <tr><td colspan="6" style="text-align: center; color: var(--gray-400);">Loading users...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 2: TEACHERS & ASSIGNMENTS -->
+    <div id="tabAssignments" class="tab-panel">
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <div class="card-title">Teacher Assignments</div>
+                    <p style="font-size: 0.85rem; color: var(--gray-500); margin-top: 0.2rem;">
+                        View assigned students per teacher and easily re-assign students.
+                    </p>
+                </div>
+            </div>
+            <div id="teacherCardsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1.5rem;">
+                <!-- Dynamically rendered -->
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB 3: STUDENTS DIRECTORY -->
+    <div id="tabStudents" class="tab-panel">
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">Student Directory & Quick Teacher Assignment</div>
+            </div>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Student Name</th>
+                            <th>Email</th>
+                            <th>Standard</th>
+                            <th>Current Assigned Teacher</th>
+                            <th>Quick Re-Assign</th>
+                        </tr>
+                    </thead>
+                    <tbody id="studentsTableBody">
+                        <tr><td colspan="5" style="text-align: center; color: var(--gray-400);">Loading students...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT USER MODAL -->
+<div class="modal-overlay" id="editUserModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3>Edit User Details</h3>
+            <button class="modal-close" onclick="closeModal('editUserModal')">&times;</button>
+        </div>
+        <form id="editUserForm">
+            <input type="hidden" id="editUserId">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="editFullName">Full Name</label>
+                    <input type="text" id="editFullName" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="editEmail">Email</label>
+                    <input type="email" id="editEmail" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="editRole">Role</label>
+                    <select id="editRole" class="form-control" onchange="handleEditRoleChange()">
+                        <option value="admin">Admin</option>
+                        <option value="teacher">Teacher</option>
+                        <option value="student">Student</option>
+                    </select>
+                </div>
+                <div class="form-group" id="editSubjectGroup">
+                    <label for="editSubject">Teaching Subject</label>
+                    <input type="text" id="editSubject" class="form-control">
+                </div>
+                <div class="form-group" id="editStandardGroup">
+                    <label for="editStandard">Standard / Grade</label>
+                    <input type="text" id="editStandard" class="form-control">
+                </div>
+                <div class="form-group" id="editTeacherGroup">
+                    <label for="editTeacherId">Assigned Teacher</label>
+                    <select id="editTeacherId" class="form-control">
+                        <option value="">-- None (Unassigned) --</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editUserModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="saveUserBtn">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- BULK ASSIGN MODAL FOR TEACHER -->
+<div class="modal-overlay" id="assignModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3 id="assignModalTitle">Assign Students to Teacher</h3>
+            <button class="modal-close" onclick="closeModal('assignModal')">&times;</button>
+        </div>
+        <form id="bulkAssignForm">
+            <input type="hidden" id="assignTeacherId">
+            <div class="modal-body">
+                <p style="font-size: 0.9rem; color: var(--gray-600); margin-bottom: 1rem;">
+                    Select the students to assign to this teacher. Re-assigning will transfer them from their current teacher.
+                </p>
+                <div id="bulkStudentChecklist" style="max-height: 250px; overflow-y: auto; border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 0.75rem;">
+                    <!-- Checkboxes -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('assignModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Update Assignments</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let allUsers = [];
+let allTeachers = [];
+let allStudents = [];
+
+function showToast(msg, type = "success") {
+    const toast = document.getElementById("adminToast");
+    toast.className = `alert alert-${type}`;
+    toast.textContent = msg;
+    toast.style.display = "block";
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    setTimeout(() => { toast.style.display = "none"; }, 4000);
+}
+
+function switchTab(panelId, btn) {
+    document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    document.getElementById(panelId).classList.add("active");
+    btn.classList.add("active");
+}
+
+function openModal(id) {
+    document.getElementById(id).classList.add("active");
+}
+
+function closeModal(id) {
+    document.getElementById(id).classList.remove("active");
+}
+
+async function loadAllAdminData() {
+    try {
+        const [usersRes, teachersRes, studentsRes] = await Promise.all([
+            fetch("/admin/users"),
+            fetch("/admin/teachers"),
+            fetch("/admin/students")
+        ]);
+
+        if (usersRes.status === 401 || usersRes.status === 403) {
+            window.location.href = "/login";
+            return;
+        }
+
+        allUsers = await usersRes.json();
+        allTeachers = await teachersRes.json();
+        allStudents = await studentsRes.json();
+
+        updateStats();
+        renderUsersTable();
+        renderTeachersAssignments();
+        renderStudentsDirectory();
+        populateEditTeacherDropdown();
+
+    } catch (e) {
+        showToast("Error loading data: " + e.message, "danger");
+    }
+}
+
+function updateStats() {
+    document.getElementById("statTotalUsers").textContent = allUsers.length;
+    document.getElementById("statTeachers").textContent = allTeachers.length;
+    document.getElementById("statStudents").textContent = allStudents.length;
+    const unassigned = allStudents.filter(s => !s.teacher_id).length;
+    document.getElementById("statUnassigned").textContent = unassigned;
+}
+
+function renderUsersTable(filtered = null) {
+    const tbody = document.getElementById("usersTableBody");
+    const list = filtered || allUsers;
+
+    if (list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--gray-400);">No users found.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = list.map(u => {
+        let roleBadge = `<span class="user-role-badge role-${u.role}">${u.role.toUpperCase()}</span>`;
+        let info = u.role === "teacher" ? (u.subject || '—') : (u.role === "student" ? (u.standard || '—') : 'Administrator');
+        let assignedTeacher = u.role === "student" ? (u.teacher_name || '<span style="color: #d97706;">Unassigned</span>') : '—';
+        
+        let statusBadge = u.is_temporary_password 
+            ? '<span style="background: #fef3c7; color: #b45309; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">Temp Password</span>' 
+            : '<span style="background: #dcfce7; color: #15803d; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">Active</span>';
+
+        return `
+            <tr>
+                <td>
+                    <div style="font-weight: 600; color: var(--gray-900);">${escapeHtml(u.full_name)}</div>
+                    <div style="font-size: 0.8rem; color: var(--gray-400);">${escapeHtml(u.email)}</div>
+                </td>
+                <td>${roleBadge}</td>
+                <td>${escapeHtml(info)}</td>
+                <td>${assignedTeacher}</td>
+                <td>${statusBadge}</td>
+                <td style="text-align: right; white-space: nowrap;">
+                    <button class="btn btn-secondary btn-sm" onclick="openEditUser('${u.id}')">Edit</button>
+                    <button class="btn btn-danger btn-sm" style="margin-left: 0.4rem;" onclick="handleDeleteUser('${u.id}', '${escapeHtml(u.full_name)}')">Delete</button>
+                </td>
+            </tr>
+        `;
+    }).join("");
+}
+
+function filterUsersTable() {
+    const q = document.getElementById("userSearchInput").value.toLowerCase();
+    const role = document.getElementById("roleFilterSelect").value;
+    const filtered = allUsers.filter(u => {
+        const matchesQ = u.full_name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+        const matchesRole = role ? u.role === role : true;
+        return matchesQ && matchesRole;
+    });
+    renderUsersTable(filtered);
+}
+
+function renderTeachersAssignments() {
+    const container = document.getElementById("teacherCardsGrid");
+    if (allTeachers.length === 0) {
+        container.innerHTML = '<div style="color: var(--gray-400);">No teachers registered yet.</div>';
+        return;
+    }
+
+    container.innerHTML = allTeachers.map(t => {
+        const studentList = t.assigned_students && t.assigned_students.length > 0
+            ? t.assigned_students.map(s => `
+                <li style="display: flex; justify-content: space-between; align-items: center; padding: 0.4rem 0; border-bottom: 1px dashed var(--gray-200); font-size: 0.875rem;">
+                    <span><strong>${escapeHtml(s.full_name)}</strong> (${escapeHtml(s.standard || 'Student')})</span>
+                    <button class="btn btn-secondary btn-sm" style="padding: 2px 6px; font-size: 0.75rem;" onclick="handleUnassignStudent('${s.id}')">Remove</button>
+                </li>
+            `).join("")
+            : '<li style="color: var(--gray-400); font-size: 0.85rem; padding: 0.5rem 0;">No students assigned yet.</li>';
+
+        return `
+            <div class="card" style="margin-bottom: 0; display: flex; flex-direction: column;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+                    <div>
+                        <h4 style="font-size: 1.1rem; font-weight: 700; color: var(--gray-900);">${escapeHtml(t.full_name)}</h4>
+                        <div style="font-size: 0.825rem; color: var(--gray-500);">${escapeHtml(t.email)}</div>
+                    </div>
+                    <span class="user-role-badge role-teacher">${escapeHtml(t.subject || 'Teacher')}</span>
+                </div>
+                <div style="font-size: 0.85rem; font-weight: 600; color: var(--gray-700); margin-bottom: 0.5rem;">
+                    Assigned Students (${t.assigned_students_count}):
+                </div>
+                <ul style="list-style: none; padding: 0; margin-bottom: 1.25rem; flex: 1;">
+                    ${studentList}
+                </ul>
+                <button class="btn btn-secondary btn-sm" style="width: 100%;" onclick="openBulkAssignModal('${t.id}', '${escapeHtml(t.full_name)}')">
+                    + Manage & Assign Students
+                </button>
+            </div>
+        `;
+    }).join("");
+}
+
+function renderStudentsDirectory() {
+    const tbody = document.getElementById("studentsTableBody");
+    if (allStudents.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--gray-400);">No students registered yet.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = allStudents.map(s => {
+        let teacherOptions = `<option value="">-- Unassigned --</option>`;
+        allTeachers.forEach(t => {
+            const isSelected = s.teacher_id === t.id ? 'selected' : '';
+            teacherOptions += `<option value="${t.id}" ${isSelected}>${escapeHtml(t.full_name)} (${escapeHtml(t.subject || 'Teacher')})</option>`;
+        });
+
+        return `
+            <tr>
+                <td><strong>${escapeHtml(s.full_name)}</strong></td>
+                <td>${escapeHtml(s.email)}</td>
+                <td>${escapeHtml(s.standard || '—')}</td>
+                <td>${s.assigned_teacher ? `<strong>${escapeHtml(s.assigned_teacher.full_name)}</strong> (${escapeHtml(s.assigned_teacher.subject || 'Teacher')})` : '<span style="color: #d97706;">Unassigned</span>'}</td>
+                <td>
+                    <select class="form-control" style="font-size: 0.85rem; padding: 0.35rem 0.6rem; width: 220px;" onchange="handleQuickReassign('${s.id}', this.value)">
+                        ${teacherOptions}
+                    </select>
+                </td>
+            </tr>
+        `;
+    }).join("");
+}
+
+async function handleQuickReassign(studentId, teacherId) {
+    try {
+        const res = await fetch("/admin/assign-student", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ student_id: studentId, teacher_id: teacherId || null })
+        });
+        const data = await res.json();
+        if (res.ok) {
+            showToast(data.message, "success");
+            loadAllAdminData();
+        } else {
+            showToast(data.detail || "Failed to assign student", "danger");
+        }
+    } catch (e) {
+        showToast("Error re-assigning student", "danger");
+    }
+}
+
+async function handleUnassignStudent(studentId) {
+    await handleQuickReassign(studentId, null);
+}
+
+function populateEditTeacherDropdown() {
+    const dropdown = document.getElementById("editTeacherId");
+    dropdown.innerHTML = '<option value="">-- None (Unassigned) --</option>';
+    allTeachers.forEach(t => {
+        const opt = document.createElement("option");
+        opt.value = t.id;
+        opt.textContent = `${t.full_name} (${t.subject || 'Teacher'})`;
+        dropdown.appendChild(opt);
+    });
+}
+
+function handleEditRoleChange() {
+    const role = document.getElementById("editRole").value;
+    document.getElementById("editSubjectGroup").style.display = role === "teacher" ? "block" : "none";
+    document.getElementById("editStandardGroup").style.display = role === "student" ? "block" : "none";
+    document.getElementById("editTeacherGroup").style.display = role === "student" ? "block" : "none";
+}
+
+function openEditUser(userId) {
+    const u = allUsers.find(x => x.id === userId);
+    if (!u) return;
+    document.getElementById("editUserId").value = u.id;
+    document.getElementById("editFullName").value = u.full_name;
+    document.getElementById("editEmail").value = u.email;
+    document.getElementById("editRole").value = u.role;
+    document.getElementById("editSubject").value = u.subject || "";
+    document.getElementById("editStandard").value = u.standard || "";
+    document.getElementById("editTeacherId").value = u.teacher_id || "";
+    handleEditRoleChange();
+    openModal("editUserModal");
+}
+
+document.getElementById("editUserForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const userId = document.getElementById("editUserId").value;
+    const btn = document.getElementById("saveUserBtn");
+    btn.disabled = true;
+
+    const payload = {
+        full_name: document.getElementById("editFullName").value.trim(),
+        email: document.getElementById("editEmail").value.trim(),
+        role: document.getElementById("editRole").value,
+        subject: document.getElementById("editSubject").value.trim() || null,
+        standard: document.getElementById("editStandard").value.trim() || null,
+        teacher_id: document.getElementById("editTeacherId").value || null
+    };
+
+    try {
+        const res = await fetch(`/admin/users/${userId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Update failed");
+        showToast("User updated successfully!", "success");
+        closeModal("editUserModal");
+        loadAllAdminData();
+    } catch (err) {
+        showToast(err.message, "danger");
+    } finally {
+        btn.disabled = false;
+    }
+});
+
+async function handleDeleteUser(userId, userName) {
+    if (!confirm(`Are you sure you want to permanently delete '${userName}'?`)) return;
+    try {
+        const res = await fetch(`/admin/users/${userId}`, { method: "DELETE" });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Deletion failed");
+        showToast(data.message, "success");
+        loadAllAdminData();
+    } catch (err) {
+        showToast(err.message, "danger");
+    }
+}
+
+function openBulkAssignModal(teacherId, teacherName) {
+    document.getElementById("assignTeacherId").value = teacherId;
+    document.getElementById("assignModalTitle").textContent = `Assign Students to ${teacherName}`;
+    const teacher = allTeachers.find(t => t.id === teacherId);
+    const assignedIds = new Set((teacher && teacher.assigned_students) ? teacher.assigned_students.map(s => s.id) : []);
+
+    const container = document.getElementById("bulkStudentChecklist");
+    if (allStudents.length === 0) {
+        container.innerHTML = '<div style="color: var(--gray-400);">No students available.</div>';
+    } else {
+        container.innerHTML = allStudents.map(s => {
+            const isChecked = assignedIds.has(s.id) ? 'checked' : '';
+            const currentT = s.assigned_teacher ? ` (Current: ${s.assigned_teacher.full_name})` : ' (Unassigned)';
+            return `
+                <label style="display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0; cursor: pointer;">
+                    <input type="checkbox" value="${s.id}" ${isChecked}>
+                    <span>${escapeHtml(s.full_name)} [${escapeHtml(s.standard || 'Student')}] ${escapeHtml(currentT)}</span>
+                </label>
+            `;
+        }).join("");
+    }
+    openModal("assignModal");
+}
+
+document.getElementById("bulkAssignForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const teacherId = document.getElementById("assignTeacherId").value;
+    const checkboxes = document.querySelectorAll("#bulkStudentChecklist input[type='checkbox']:checked");
+    const studentIds = Array.from(checkboxes).map(c => c.value);
+
+    try {
+        const res = await fetch(`/admin/teachers/${teacherId}/assign-students`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ teacher_id: teacherId, student_ids: studentIds })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Failed to update assignments");
+        showToast(data.message, "success");
+        closeModal("assignModal");
+        loadAllAdminData();
+    } catch (err) {
+        showToast(err.message, "danger");
+    }
+});
+
+function escapeHtml(text) {
+    if (!text) return "";
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    loadAllAdminData();
+});
+</script>
+{% endblock %}

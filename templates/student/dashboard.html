@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}Student Portal - RBAC Management{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 900px;">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Student Portal</h1>
+            <p class="page-subtitle">Your academic profile and assigned teacher information</p>
+        </div>
+        <button class="btn btn-secondary" onclick="loadStudentData()">↻ Refresh</button>
+    </div>
+
+    <!-- Alert / Toast -->
+    <div id="studentToast" style="display: none;" class="alert"></div>
+
+    <!-- Read-Only Policy Banner -->
+    <div class="alert alert-info" style="margin-bottom: 2rem;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink: 0;"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+        <div>
+            <strong>Read-Only Access:</strong> As per institutional policy, student profiles are read-only.
+            If any changes are required for your name, email, or standard, please reach out to your assigned teacher or the administration.
+        </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 1.5rem;">
+        <!-- Student Profile Card -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">Personal Profile</div>
+                <span class="user-role-badge role-student">STUDENT</span>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+                <div>
+                    <label style="font-size: 0.8rem; color: var(--gray-500); text-transform: uppercase; font-weight: 600;">Full Name</label>
+                    <div id="stuFullName" style="font-size: 1.15rem; font-weight: 700; color: var(--gray-900); margin-top: 0.2rem;">Loading...</div>
+                </div>
+
+                <div>
+                    <label style="font-size: 0.8rem; color: var(--gray-500); text-transform: uppercase; font-weight: 600;">Email Address</label>
+                    <div id="stuEmail" style="font-size: 0.95rem; color: var(--gray-700); margin-top: 0.2rem;">Loading...</div>
+                </div>
+
+                <div>
+                    <label style="font-size: 0.8rem; color: var(--gray-500); text-transform: uppercase; font-weight: 600;">Current Standard / Grade</label>
+                    <div id="stuStandard" style="font-size: 1rem; font-weight: 600; color: var(--primary); margin-top: 0.2rem;">Loading...</div>
+                </div>
+
+                <div>
+                    <label style="font-size: 0.8rem; color: var(--gray-500); text-transform: uppercase; font-weight: 600;">Account Status</label>
+                    <div style="margin-top: 0.2rem;">
+                        <span id="stuStatus" style="background: #dcfce7; color: #15803d; padding: 3px 10px; border-radius: 4px; font-size: 0.825rem; font-weight: 600;">Active & Verified</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Assigned Teacher Card -->
+        <div class="card" style="border-top: 4px solid var(--primary);">
+            <div class="card-header">
+                <div class="card-title">Assigned Teacher</div>
+                <span class="user-role-badge role-teacher">FACULTY</span>
+            </div>
+
+            <div id="teacherCardContent">
+                <div style="color: var(--gray-400); text-align: center; padding: 2rem 0;">
+                    Loading assigned teacher details...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showToast(msg, type = "success") {
+    const toast = document.getElementById("studentToast");
+    toast.className = `alert alert-${type}`;
+    toast.textContent = msg;
+    toast.style.display = "block";
+    setTimeout(() => { toast.style.display = "none"; }, 4000);
+}
+
+async function loadStudentData() {
+    try {
+        const res = await fetch("/student/my-profile");
+        if (res.status === 401 || res.status === 403) {
+            window.location.href = "/login";
+            return;
+        }
+
+        const data = await res.json();
+        const student = data.student;
+        const teacher = data.assigned_teacher;
+
+        document.getElementById("stuFullName").textContent = student.full_name;
+        document.getElementById("stuEmail").textContent = student.email;
+        document.getElementById("stuStandard").textContent = student.standard || "Not Specified";
+
+        const teacherContainer = document.getElementById("teacherCardContent");
+        if (teacher) {
+            teacherContainer.innerHTML = `
+                <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+                    <div>
+                        <label style="font-size: 0.8rem; color: var(--gray-500); text-transform: uppercase; font-weight: 600;">Teacher Name</label>
+                        <div style="font-size: 1.15rem; font-weight: 700; color: var(--gray-900); margin-top: 0.2rem;">${escapeHtml(teacher.full_name)}</div>
+                    </div>
+
+                    <div>
+                        <label style="font-size: 0.8rem; color: var(--gray-500); text-transform: uppercase; font-weight: 600;">Subject</label>
+                        <div style="font-size: 1rem; font-weight: 600; color: #2563eb; margin-top: 0.2rem;">${escapeHtml(teacher.subject || 'General Studies')}</div>
+                    </div>
+
+                    <div>
+                        <label style="font-size: 0.8rem; color: var(--gray-500); text-transform: uppercase; font-weight: 600;">Contact Email</label>
+                        <div style="font-size: 0.95rem; color: var(--gray-700); margin-top: 0.2rem;">
+                            <a href="mailto:${escapeHtml(teacher.email)}" style="color: var(--primary); text-decoration: none;">${escapeHtml(teacher.email)}</a>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            teacherContainer.innerHTML = `
+                <div style="text-align: center; padding: 2rem 1rem; color: var(--gray-500);">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 0.75rem; color: var(--gray-400);"><circle cx="12" cy="12" r="10"></circle><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+                    <h4 style="font-size: 1.05rem; color: var(--gray-700); margin-bottom: 0.25rem;">No Teacher Assigned</h4>
+                    <p style="font-size: 0.875rem;">You currently do not have a teacher assigned. The school administrator will assign you to a teacher shortly.</p>
+                </div>
+            `;
+        }
+    } catch (e) {
+        showToast("Error retrieving student profile: " + e.message, "danger");
+    }
+}
+
+function escapeHtml(text) {
+    if (!text) return "";
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    loadStudentData();
+});
+</script>
+{% endblock %}

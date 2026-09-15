@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+
+{% block title %}Account Verification & Password Setup{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <div class="auth-header">
+            <h1 id="stepTitle">Verify Your Email</h1>
+            <p id="stepSubtitle">Enter the 6-digit OTP code sent to your email to continue</p>
+        </div>
+
+        <div id="setupAlert" style="display: none;" class="alert"></div>
+
+        <!-- Step 1: OTP Verification Form -->
+        <form id="otpForm">
+            <div class="form-group">
+                <label for="otpEmail">Registered Email</label>
+                <input type="email" id="otpEmail" class="form-control" readonly style="background: var(--gray-100);">
+            </div>
+
+            <div class="form-group">
+                <label for="otpInput">One-Time Password (OTP)</label>
+                <input type="text" id="otpInput" class="form-control" placeholder="6-digit OTP" maxlength="6" required style="letter-spacing: 0.25rem; font-size: 1.25rem; text-align: center;" autofocus>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;" id="verifyOtpBtn">
+                Verify OTP Code
+            </button>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.25rem; font-size: 0.85rem;">
+                <span style="color: var(--gray-500);">Didn't receive code?</span>
+                <button type="button" class="btn btn-secondary btn-sm" id="resendOtpBtn" onclick="handleResendOTP()">Resend OTP</button>
+            </div>
+        </form>
+
+        <!-- Step 2: Change Password Form (Hidden initially) -->
+        <form id="passwordForm" style="display: none;">
+            <div class="form-group">
+                <label for="newPassword">New Secure Password</label>
+                <input type="password" id="newPassword" class="form-control" placeholder="Minimum 8 characters" required minlength="8">
+            </div>
+
+            <div class="form-group">
+                <label for="confirmPassword">Confirm New Password</label>
+                <input type="password" id="confirmPassword" class="form-control" placeholder="Re-enter new password" required minlength="8">
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;" id="changePasswordBtn">
+                Save Password & Access Dashboard
+            </button>
+        </form>
+
+        <div style="margin-top: 1.5rem; text-align: center; font-size: 0.85rem; color: var(--gray-400);">
+            Check your server console if running in local test mode without live SMTP delivery.
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const urlParams = new URLSearchParams(window.location.search);
+const userId = urlParams.get("user_id");
+const userEmail = urlParams.get("email");
+
+const otpForm = document.getElementById("otpForm");
+const passwordForm = document.getElementById("passwordForm");
+const alertBox = document.getElementById("setupAlert");
+const stepTitle = document.getElementById("stepTitle");
+const stepSubtitle = document.getElementById("stepSubtitle");
+
+if (userEmail) {
+    document.getElementById("otpEmail").value = userEmail;
+}
+
+if (!userId) {
+    alertBox.className = "alert alert-danger";
+    alertBox.textContent = "Missing user verification ID. Please log in again.";
+    alertBox.style.display = "block";
+    otpForm.style.display = "none";
+}
+
+// Step 1: Verify OTP
+otpForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("verifyOtpBtn");
+    alertBox.style.display = "none";
+    btn.disabled = true;
+    btn.textContent = "Verifying...";
+
+    const otp = document.getElementById("otpInput").value.trim();
+
+    try {
+        const response = await fetch("/first-time/verify-otp", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ user_id: userId, otp: otp })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            alertBox.className = "alert alert-danger";
+            alertBox.textContent = data.detail || "Invalid or expired OTP.";
+            alertBox.style.display = "block";
+            return;
+        }
+
+        // Advance to Step 2
+        alertBox.className = "alert alert-success";
+        alertBox.textContent = "OTP verified! Now create your new secure password.";
+        alertBox.style.display = "block";
+
+        otpForm.style.display = "none";
+        passwordForm.style.display = "block";
+        stepTitle.textContent = "Set New Password";
+        stepSubtitle.textContent = "Choose a strong password to replace the temporary one";
+        document.getElementById("newPassword").focus();
+
+    } catch (err) {
+        alertBox.className = "alert alert-danger";
+        alertBox.textContent = "Failed to communicate with server.";
+        alertBox.style.display = "block";
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Verify OTP Code";
+    }
+});
+
+// Resend OTP
+async function handleResendOTP() {
+    const resendBtn = document.getElementById("resendOtpBtn");
+    resendBtn.disabled = true;
+    resendBtn.textContent = "Sending...";
+
+    try {
+        const res = await fetch("/first-time/resend-otp", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ user_id: userId })
+        });
+        const data = await res.json();
+        alertBox.className = "alert alert-info";
+        alertBox.textContent = data.message || "New OTP dispatched!";
+        alertBox.style.display = "block";
+    } catch (e) {
+        alertBox.className = "alert alert-danger";
+        alertBox.textContent = "Failed to resend OTP.";
+        alertBox.style.display = "block";
+    } finally {
+        setTimeout(() => {
+            resendBtn.disabled = false;
+            resendBtn.textContent = "Resend OTP";
+        }, 5000);
+    }
+}
+
+// Step 2: Change Password
+passwordForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("changePasswordBtn");
+    alertBox.style.display = "none";
+
+    const newPassword = document.getElementById("newPassword").value;
+    const confirmPassword = document.getElementById("confirmPassword").value;
+
+    if (newPassword !== confirmPassword) {
+        alertBox.className = "alert alert-danger";
+        alertBox.textContent = "Passwords do not match. Please re-enter.";
+        alertBox.style.display = "block";
+        return;
+    }
+
+    if (newPassword.length < 8) {
+        alertBox.className = "alert alert-danger";
+        alertBox.textContent = "Password must be at least 8 characters long.";
+        alertBox.style.display = "block";
+        return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "Updating Password...";
+
+    try {
+        const response = await fetch("/first-time/change-password", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ user_id: userId, new_password: newPassword })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            alertBox.className = "alert alert-danger";
+            alertBox.textContent = data.detail || "Unable to set password.";
+            alertBox.style.display = "block";
+            return;
+        }
+
+        alertBox.className = "alert alert-success";
+        alertBox.textContent = "Password updated! Redirecting to your dashboard...";
+        alertBox.style.display = "block";
+
+        const role = data.role;
+        setTimeout(() => {
+            if (role === "admin") {
+                window.location.href = "/admin/dashboard";
+            } else if (role === "teacher") {
+                window.location.href = "/teacher/dashboard";
+            } else if (role === "student") {
+                window.location.href = "/student/dashboard";
+            } else {
+                window.location.href = "/";
+            }
+        }, 1200);
+
+    } catch (err) {
+        alertBox.className = "alert alert-danger";
+        alertBox.textContent = "Network error while saving password.";
+        alertBox.style.display = "block";
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Save Password & Access Dashboard";
+    }
+});
+</script>
+{% endblock %}

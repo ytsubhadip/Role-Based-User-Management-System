@@ -1,69 +1,151 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Registration</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='css/userRegistration.css') }}">
-</head>
+{% block title %}Register - RBAC Portal{% endblock %}
 
-<body>
-
-    <h1>Self Registration Form</h1>
-    <form method="post" id="RegistrationForm">
-        <label>Full Name</label>
-        <input type="text" name="full_name" id="userFullName" required>
-
-        <label>Email</label>
-        <input type="email" name="email" id="UserEmail" required>
-
-        <label>Password</label>
-        <input type="password" name="password" id="userPassowrd" required>
-
-        <label for="role">Select Role</label>
-
-        <select name="role" id="role" required>
-            <option value="">-- Select Role --</option>
-            <option value="student">Student</option>
-            <option value="teacher">Teacher</option>
-        </select>
-
-        <div id="studentFields" style="display: none;">
-            <label for="standard">Standard</label>
-            <input type="text" id="standard" name="standard">
+{% block content %}
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <div class="auth-header">
+            <h1>Create Account</h1>
+            <p>Select your role and complete registration</p>
         </div>
 
-        <div id="teacherFields" style="display: none;">
-            <label for="Subject">Subject</label>
-            <input type="text" id="Subject" name="Subject">
+        <div id="regAlert" style="display: none;" class="alert"></div>
+
+        <form id="registrationForm">
+            <div class="form-group">
+                <label for="full_name">Full Name</label>
+                <input type="text" id="full_name" class="form-control" placeholder="John Doe" required minlength="2">
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" class="form-control" placeholder="john@example.com" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" class="form-control" placeholder="Minimum 8 characters" required minlength="8">
+            </div>
+
+            <div class="form-group">
+                <label for="role">Select Your Role</label>
+                <select id="role" class="form-control" required>
+                    <option value="">-- Choose Role --</option>
+                    <option value="student">I am a Student</option>
+                    <option value="teacher">I am a Teacher</option>
+                </select>
+            </div>
+
+            <!-- Conditional field for Student -->
+            <div class="form-group" id="studentSection" style="display: none;">
+                <label for="standard">Standard / Grade <span style="color: var(--danger)">*</span></label>
+                <input type="text" id="standard" class="form-control" placeholder="e.g. 10th Grade, Section A">
+            </div>
+
+            <!-- Conditional field for Teacher -->
+            <div class="form-group" id="teacherSection" style="display: none;">
+                <label for="subject">Teaching Subject <span style="color: var(--danger)">*</span></label>
+                <input type="text" id="subject" class="form-control" placeholder="e.g. Mathematics, Physics, Chemistry">
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;" id="regBtn">
+                Register Account
+            </button>
+        </form>
+
+        <div style="margin-top: 1.5rem; text-align: center; font-size: 0.9rem; color: var(--gray-500);">
+            Already have an account? <a href="/login" style="color: var(--primary); font-weight: 600; text-decoration: none;">Sign In</a>
         </div>
-        <button type="submit">Register</button>
-        <p id="registrationStatus" role="alert" aria-live="polite"></p>
-    </form>
+    </div>
+</div>
+{% endblock %}
 
-    <script>
-    const roleSelect = document.getElementById("role");
+{% block scripts %}
+<script>
+const roleSelect = document.getElementById("role");
+const studentSection = document.getElementById("studentSection");
+const teacherSection = document.getElementById("teacherSection");
+const standardInput = document.getElementById("standard");
+const subjectInput = document.getElementById("subject");
 
-    const studentFields = document.getElementById("studentFields");
-    const teacherFields = document.getElementById("teacherFields");
+roleSelect.addEventListener("change", () => {
+    const role = roleSelect.value;
+    if (role === "student") {
+        studentSection.style.display = "block";
+        standardInput.required = true;
+        teacherSection.style.display = "none";
+        subjectInput.required = false;
+        subjectInput.value = "";
+    } else if (role === "teacher") {
+        teacherSection.style.display = "block";
+        subjectInput.required = true;
+        studentSection.style.display = "none";
+        standardInput.required = false;
+        standardInput.value = "";
+    } else {
+        studentSection.style.display = "none";
+        teacherSection.style.display = "none";
+        standardInput.required = false;
+        subjectInput.required = false;
+    }
+});
 
-    roleSelect.addEventListener("change", function () {
-        const selectedRole = roleSelect.value;
+document.getElementById("registrationForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("regBtn");
+    const alertBox = document.getElementById("regAlert");
 
-        // Hide both sections first
-        studentFields.style.display = "none";
-        teacherFields.style.display = "none";
+    alertBox.style.display = "none";
+    btn.disabled = true;
+    btn.textContent = "Creating Account...";
 
-        // Show fields according to selected role
-        if (selectedRole === "student") {
-            studentFields.style.display = "block";
-        } else if (selectedRole === "teacher") {
-            teacherFields.style.display = "block";
+    const role = roleSelect.value;
+    const payload = {
+        full_name: document.getElementById("full_name").value.trim(),
+        email: document.getElementById("email").value.trim(),
+        password: document.getElementById("password").value,
+        role: role,
+        standard: role === "student" ? standardInput.value.trim() : null,
+        subject: role === "teacher" ? subjectInput.value.trim() : null
+    };
+
+    try {
+        const response = await fetch("/registration", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            let errorMsg = data.detail;
+            if (Array.isArray(errorMsg)) {
+                errorMsg = errorMsg.map(err => err.msg).join(", ");
+            }
+            alertBox.className = "alert alert-danger";
+            alertBox.textContent = errorMsg || "Registration failed.";
+            alertBox.style.display = "block";
+            return;
         }
-    });
-</script>
-    <script src="/static/js/registration.js"></script>
-</body>
 
-</html>
+        alertBox.className = "alert alert-success";
+        alertBox.textContent = data.message + " Redirecting to login...";
+        alertBox.style.display = "block";
+
+        setTimeout(() => {
+            window.location.href = "/login";
+        }, 1500);
+
+    } catch (err) {
+        alertBox.className = "alert alert-danger";
+        alertBox.textContent = "Unable to connect to server.";
+        alertBox.style.display = "block";
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Register Account";
+    }
+});
+</script>
+{% endblock %}

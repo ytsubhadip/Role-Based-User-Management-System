@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block title %}Teacher Portal - RBAC Management{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Teacher Portal</h1>
+            <p class="page-subtitle" id="teacherSubtitle">Managing your assigned students</p>
+        </div>
+        <button class="btn btn-secondary" onclick="loadMyStudents()">↻ Refresh</button>
+    </div>
+
+    <!-- Alert / Toast -->
+    <div id="teacherToast" style="display: none;" class="alert"></div>
+
+    <!-- Teacher Profile Card -->
+    <div class="card" style="background: linear-gradient(135deg, #1e293b, #0f172a); color: white; border: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <div>
+                <span class="user-role-badge role-teacher" style="background: rgba(59, 130, 246, 0.2); color: #93c5fd; border: 1px solid #3b82f6;">
+                    TEACHER ACCOUNT
+                </span>
+                <h2 id="teacherName" style="font-size: 1.5rem; margin-top: 0.5rem; color: white;">Teacher</h2>
+                <div style="color: #94a3b8; font-size: 0.9rem;" id="teacherEmail">email@school.com</div>
+            </div>
+            <div style="text-align: right;">
+                <div style="font-size: 0.85rem; color: #94a3b8; text-transform: uppercase;">Subject Specialization</div>
+                <div id="teacherSubject" style="font-size: 1.25rem; font-weight: 700; color: #38bdf8;">—</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assigned Students Section -->
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <div class="card-title">My Assigned Students (<span id="assignedCount">0</span>)</div>
+                <p style="font-size: 0.85rem; color: var(--gray-500); margin-top: 0.2rem;">
+                    Students explicitly assigned to you by the administration. You can update their details below.
+                </p>
+            </div>
+            <div>
+                <input type="text" id="studentSearchInput" class="form-control" placeholder="Search my students..." style="width: 220px;" oninput="filterStudents()">
+            </div>
+        </div>
+
+        <div class="alert alert-info" style="font-size: 0.85rem;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            <span><strong>Permission Policy:</strong> You have permission to update student details. Deleting student accounts is reserved exclusively for Administrators.</span>
+        </div>
+
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Student Name</th>
+                        <th>Email</th>
+                        <th>Standard / Grade</th>
+                        <th style="text-align: right;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="assignedStudentsTableBody">
+                    <tr><td colspan="4" style="text-align: center; color: var(--gray-400);">Loading assigned students...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT STUDENT MODAL -->
+<div class="modal-overlay" id="editStudentModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h3>Update Assigned Student</h3>
+            <button class="modal-close" onclick="closeModal('editStudentModal')">&times;</button>
+        </div>
+        <form id="editStudentForm">
+            <input type="hidden" id="editStudentId">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="studentFullName">Full Name</label>
+                    <input type="text" id="studentFullName" class="form-control" required minlength="2">
+                </div>
+                <div class="form-group">
+                    <label for="studentEmail">Email</label>
+                    <input type="email" id="studentEmail" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="studentStandard">Standard / Grade</label>
+                    <input type="text" id="studentStandard" class="form-control" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editStudentModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="saveStudentBtn">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let myStudents = [];
+
+function showToast(msg, type = "success") {
+    const toast = document.getElementById("teacherToast");
+    toast.className = `alert alert-${type}`;
+    toast.textContent = msg;
+    toast.style.display = "block";
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    setTimeout(() => { toast.style.display = "none"; }, 4000);
+}
+
+function openModal(id) {
+    document.getElementById(id).classList.add("active");
+}
+
+function closeModal(id) {
+    document.getElementById(id).classList.remove("active");
+}
+
+async function loadTeacherProfile() {
+    try {
+        const res = await fetch("/me");
+        if (res.ok) {
+            const user = await res.json();
+            if (user.role !== "teacher") {
+                window.location.href = `/${user.role}/dashboard`;
+                return;
+            }
+            document.getElementById("teacherName").textContent = user.full_name;
+            document.getElementById("teacherEmail").textContent = user.email;
+            document.getElementById("teacherSubject").textContent = user.subject || 'Not specified';
+            document.getElementById("teacherSubtitle").textContent = `Teaching: ${user.subject || 'General'}`;
+        }
+    } catch (e) {
+        console.error("Error fetching teacher profile", e);
+    }
+}
+
+async function loadMyStudents() {
+    try {
+        const res = await fetch("/teacher/my-students");
+        if (res.status === 401 || res.status === 403) {
+            window.location.href = "/login";
+            return;
+        }
+
+        myStudents = await res.json();
+        document.getElementById("assignedCount").textContent = myStudents.length;
+        renderStudentsTable(myStudents);
+    } catch (e) {
+        showToast("Failed to load students: " + e.message, "danger");
+    }
+}
+
+function renderStudentsTable(list) {
+    const tbody = document.getElementById("assignedStudentsTableBody");
+    if (!list || list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--gray-400); padding: 2rem;">No students are currently assigned to you. Contact the Administrator to assign students.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = list.map(s => `
+        <tr>
+            <td><strong>${escapeHtml(s.full_name)}</strong></td>
+            <td>${escapeHtml(s.email)}</td>
+            <td><span class="user-role-badge role-student">${escapeHtml(s.standard || '—')}</span></td>
+            <td style="text-align: right;">
+                <button class="btn btn-secondary btn-sm" onclick="openEditStudent('${s.id}')">Edit Details</button>
+            </td>
+        </tr>
+    `).join("");
+}
+
+function filterStudents() {
+    const q = document.getElementById("studentSearchInput").value.toLowerCase();
+    const filtered = myStudents.filter(s => 
+        s.full_name.toLowerCase().includes(q) || 
+        s.email.toLowerCase().includes(q) || 
+        (s.standard && s.standard.toLowerCase().includes(q))
+    );
+    renderStudentsTable(filtered);
+}
+
+function openEditStudent(studentId) {
+    const s = myStudents.find(x => x.id === studentId);
+    if (!s) return;
+    document.getElementById("editStudentId").value = s.id;
+    document.getElementById("studentFullName").value = s.full_name;
+    document.getElementById("studentEmail").value = s.email;
+    document.getElementById("studentStandard").value = s.standard || "";
+    openModal("editStudentModal");
+}
+
+document.getElementById("editStudentForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const studentId = document.getElementById("editStudentId").value;
+    const btn = document.getElementById("saveStudentBtn");
+    btn.disabled = true;
+
+    const payload = {
+        full_name: document.getElementById("studentFullName").value.trim(),
+        email: document.getElementById("studentEmail").value.trim(),
+        standard: document.getElementById("studentStandard").value.trim()
+    };
+
+    try {
+        const res = await fetch(`/teacher/students/${studentId}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Update failed.");
+
+        showToast(data.message || "Student details updated!", "success");
+        closeModal("editStudentModal");
+        loadMyStudents();
+    } catch (err) {
+        showToast(err.message, "danger");
+    } finally {
+        btn.disabled = false;
+    }
+});
+
+function escapeHtml(text) {
+    if (!text) return "";
+    return String(text)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    loadTeacherProfile();
+    loadMyStudents();
+});
+</script>
+{% endblock %}

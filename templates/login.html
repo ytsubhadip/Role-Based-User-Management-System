@@ -1,29 +1,120 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='css/loginpage.css') }}">
-</head>
+{% block title %}Login - RBAC Portal{% endblock %}
 
-<body>
+{% block content %}
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <div class="auth-header">
+            <h1>Welcome Back</h1>
+            <p>Sign in to access your role-based portal</p>
+        </div>
 
-    <form method="post" id="userLoginForm">
-        <h1 style="text-align: center;">Login</h1>
-       
-        <label for="email">Email</label>
-        <input type="email" placeholder="Enter your email" id="UserEmail" required>
+        <div id="loginAlert" style="display: none;" class="alert"></div>
 
-        <label for="password">password</label>
-        <input type="text" placeholder="Enter your password" id="UserPassword" required>
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" class="form-control" placeholder="name@school.com" required autofocus>
+            </div>
 
-        <button type="submit">submit</button>
-        <p id="loginStatus" role="alert" aria-live="polite"></p>
-    </form>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" class="form-control" placeholder="Enter your password" required>
+            </div>
 
-    <script src="/static/js/userLogin.js"></script>
-</body>
+            <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 0.5rem;" id="loginBtn">
+                Sign In
+            </button>
+        </form>
 
-</html>
+        <div style="margin-top: 1.5rem; text-align: center; font-size: 0.9rem; color: var(--gray-500);">
+            Don't have an account? <a href="/registration" style="color: var(--primary); font-weight: 600; text-decoration: none;">Self-Register</a>
+        </div>
+
+        <div style="margin-top: 2rem; padding-top: 1.25rem; border-top: 1px dashed var(--gray-200); font-size: 0.825rem; color: var(--gray-500);">
+            <div style="font-weight: 600; margin-bottom: 0.25rem; color: var(--gray-700);">Default Administrator:</div>
+            <div style="display: flex; justify-content: space-between; align-items: center; background: var(--gray-50); padding: 0.5rem 0.75rem; border-radius: var(--radius-sm);">
+                <span>admin@school.com | Admin@123456</span>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="fillAdminCreds()">Auto Fill</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function fillAdminCreds() {
+    document.getElementById("email").value = "admin@school.com";
+    document.getElementById("password").value = "Admin@123456";
+}
+
+document.getElementById("loginForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("loginBtn");
+    const alertBox = document.getElementById("loginAlert");
+    
+    alertBox.style.display = "none";
+    btn.disabled = true;
+    btn.textContent = "Signing In...";
+
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+
+    try {
+        const response = await fetch("/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            alertBox.className = "alert alert-danger";
+            alertBox.textContent = data.detail || "Invalid login credentials.";
+            alertBox.style.display = "block";
+            return;
+        }
+
+        // Check if user has temporary password or needs OTP verification
+        if (data.status === "temporary_password" || data.status === "email_not_verified") {
+            alertBox.className = "alert alert-info";
+            alertBox.textContent = data.message || "OTP verification required. Redirecting...";
+            alertBox.style.display = "block";
+            setTimeout(() => {
+                window.location.href = `/verify-otp?user_id=${encodeURIComponent(data.user_id)}&email=${encodeURIComponent(data.email || email)}`;
+            }, 1200);
+            return;
+        }
+
+        // Normal successful login: route to role dashboard
+        alertBox.className = "alert alert-success";
+        alertBox.textContent = "Login successful! Redirecting...";
+        alertBox.style.display = "block";
+
+        const role = data.role;
+        setTimeout(() => {
+            if (role === "admin") {
+                window.location.href = "/admin/dashboard";
+            } else if (role === "teacher") {
+                window.location.href = "/teacher/dashboard";
+            } else if (role === "student") {
+                window.location.href = "/student/dashboard";
+            } else {
+                window.location.href = "/";
+            }
+        }, 800);
+
+    } catch (err) {
+        alertBox.className = "alert alert-danger";
+        alertBox.textContent = "Network error. Please try again.";
+        alertBox.style.display = "block";
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Sign In";
+    }
+});
+</script>
+{% endblock %}

@@ -1,68 +1,230 @@
-<!DOCTYPE html>
-<html lang="en">
+{% extends "base.html" %}
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Registration</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='css/adminRegistration.css') }}">
-</head> 
+{% block title %}Create User - Admin Panel{% endblock %}
 
-<body>
-    <h1> Admin Creater User</h1>
-    <form  method="post" id="AdminRegistrationForm">
-
-
-
-        <select name="role" id="role" required>
-            <option value="">-- Select Role --</option>
-            <option value="teacher">Teacher</option>
-            <option value="student">Student</option>
-        </select>
-
-        <label>Full Name</label>
-        <input type="text" name="full_name" id="userFullName" required>
-
-        <label>Email</label>
-        <input type="email" name="email" id="UserEmail" required>
-
-        <div id="studentFields" style="display: none;">
-            <label for="standard">Standard</label>
-            <input type="text" id="standard" name="standard">
+{% block content %}
+<div class="container" style="max-width: 720px;">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Create Teacher or Student</h1>
+            <p class="page-subtitle">A temporary password will be auto-generated and emailed to the user.</p>
         </div>
+        <a href="/admin/dashboard" class="btn btn-secondary">&larr; Back to Dashboard</a>
+    </div>
 
-        <div id="teacherFields" style="display: none;">
-            <label for="Subject">Subject</label>
-            <input type="text" id="Subject" name="Subject">
+    <div id="adminCreateAlert" style="display: none;" class="alert"></div>
+
+    <!-- Success Modal/Card showing created temporary credentials -->
+    <div id="credentialsCard" class="card" style="display: none; border-left: 4px solid var(--success); background: #f0fdf4;">
+        <h3 style="color: #15803d; margin-bottom: 0.5rem; font-size: 1.15rem;">User Created Successfully!</h3>
+        <p style="font-size: 0.9rem; color: #166534; margin-bottom: 1rem;">
+            An automated email containing credentials was dispatched. You can also securely copy them below:
+        </p>
+        <div style="background: white; border: 1px solid #bbf7d0; border-radius: var(--radius-md); padding: 1rem; font-family: monospace; font-size: 0.95rem;">
+            <div><strong>Email:</strong> <span id="credEmail"></span></div>
+            <div style="margin-top: 0.25rem;"><strong>Role:</strong> <span id="credRole"></span></div>
+            <div style="margin-top: 0.25rem;"><strong>Temporary Password:</strong> <span id="credTempPassword" style="background: #fef08a; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 700;"></span></div>
         </div>
+        <div style="margin-top: 1rem; display: flex; gap: 0.75rem;">
+            <button class="btn btn-primary btn-sm" onclick="createNewAnother()">Create Another User</button>
+            <a href="/admin/dashboard" class="btn btn-secondary btn-sm">View in Dashboard</a>
+        </div>
+    </div>
 
-        <button type="submit">Create</button>
-        <p id="adminRegistrationStatus" role="alert" aria-live="polite"></p>
-    </form>
+    <div class="card" id="formCard">
+        <form id="adminUserForm">
+            <div class="form-group">
+                <label for="role">User Role <span style="color: var(--danger)">*</span></label>
+                <select id="role" class="form-control" required>
+                    <option value="">-- Select Role to Create --</option>
+                    <option value="teacher">Teacher</option>
+                    <option value="student">Student</option>
+                </select>
+            </div>
 
+            <div class="form-group">
+                <label for="full_name">Full Name <span style="color: var(--danger)">*</span></label>
+                <input type="text" id="full_name" class="form-control" placeholder="Jane Doe" required minlength="2">
+            </div>
 
-    <script>
-        const roleSelect = document.getElementById("role");
+            <div class="form-group">
+                <label for="email">Email Address <span style="color: var(--danger)">*</span></label>
+                <input type="email" id="email" class="form-control" placeholder="user@school.com" required>
+            </div>
 
-        const studentFields = document.getElementById("studentFields");
-        const teacherFields = document.getElementById("teacherFields");
+            <!-- Teacher Specific Fields -->
+            <div id="teacherFields" style="display: none;">
+                <div class="form-group">
+                    <label for="subject">Teaching Subject <span style="color: var(--danger)">*</span></label>
+                    <input type="text" id="subject" class="form-control" placeholder="e.g. Physics, Literature">
+                </div>
 
-        roleSelect.addEventListener("change", function () {
-            const selectedRole = roleSelect.value;
-            
-            // Hide both sections first
-            studentFields.style.display = "none";
-            teacherFields.style.display = "none";
+                <div class="form-group">
+                    <label for="assignedStudents">Assign Existing Students (Optional)</label>
+                    <select id="assignedStudents" class="form-control" multiple style="height: 120px;">
+                        <!-- Dynamically populated from API -->
+                    </select>
+                    <small style="color: var(--gray-500); display: block; margin-top: 0.25rem;">Hold Ctrl (Windows) or Cmd (Mac) to select multiple students.</small>
+                </div>
+            </div>
 
-            // Show fields according to selected role
-            if (selectedRole === "student") {
-                studentFields.style.display = "block";
-            } else if (selectedRole === "teacher") {
-                teacherFields.style.display = "block";
-            }
+            <!-- Student Specific Fields -->
+            <div id="studentFields" style="display: none;">
+                <div class="form-group">
+                    <label for="standard">Standard / Grade <span style="color: var(--danger)">*</span></label>
+                    <input type="text" id="standard" class="form-control" placeholder="e.g. 12th Grade - Section B">
+                </div>
+
+                <div class="form-group">
+                    <label for="assignedTeacher">Assign to Teacher (Optional)</label>
+                    <select id="assignedTeacher" class="form-control">
+                        <option value="">-- No Teacher Assigned (Can assign later) --</option>
+                        <!-- Dynamically populated from API -->
+                    </select>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="submitBtn" style="width: 100%; margin-top: 1rem;">
+                Create User & Auto-Generate Password
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const roleSelect = document.getElementById("role");
+const teacherFields = document.getElementById("teacherFields");
+const studentFields = document.getElementById("studentFields");
+const subjectInput = document.getElementById("subject");
+const standardInput = document.getElementById("standard");
+const teacherDropdown = document.getElementById("assignedTeacher");
+const studentMultiSelect = document.getElementById("assignedStudents");
+const alertBox = document.getElementById("adminCreateAlert");
+
+let availableTeachers = [];
+let availableStudents = [];
+
+async function loadDropdownData() {
+    try {
+        const [teachersRes, studentsRes] = await Promise.all([
+            fetch("/admin/teachers"),
+            fetch("/admin/students")
+        ]);
+
+        if (teachersRes.ok) {
+            availableTeachers = await teachersRes.json();
+            teacherDropdown.innerHTML = '<option value="">-- No Teacher Assigned --</option>';
+            availableTeachers.forEach(t => {
+                const opt = document.createElement("option");
+                opt.value = t.id;
+                opt.textContent = `${t.full_name} (${t.subject || 'Teacher'})`;
+                teacherDropdown.appendChild(opt);
+            });
+        }
+
+        if (studentsRes.ok) {
+            availableStudents = await studentsRes.json();
+            studentMultiSelect.innerHTML = '';
+            availableStudents.forEach(s => {
+                const opt = document.createElement("option");
+                opt.value = s.id;
+                const assignedText = s.assigned_teacher ? ` [Assigned to: ${s.assigned_teacher.full_name}]` : ' [Unassigned]';
+                opt.textContent = `${s.full_name} (${s.standard || 'Student'})${assignedText}`;
+                studentMultiSelect.appendChild(opt);
+            });
+        }
+    } catch (e) {
+        console.error("Failed to load teachers/students for dropdowns", e);
+    }
+}
+
+roleSelect.addEventListener("change", () => {
+    const role = roleSelect.value;
+    if (role === "teacher") {
+        teacherFields.style.display = "block";
+        subjectInput.required = true;
+        studentFields.style.display = "none";
+        standardInput.required = false;
+    } else if (role === "student") {
+        studentFields.style.display = "block";
+        standardInput.required = true;
+        teacherFields.style.display = "none";
+        subjectInput.required = false;
+    } else {
+        teacherFields.style.display = "none";
+        studentFields.style.display = "none";
+        subjectInput.required = false;
+        standardInput.required = false;
+    }
+});
+
+document.getElementById("adminUserForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("submitBtn");
+    alertBox.style.display = "none";
+    btn.disabled = true;
+    btn.textContent = "Creating User...";
+
+    const role = roleSelect.value;
+    const payload = {
+        full_name: document.getElementById("full_name").value.trim(),
+        email: document.getElementById("email").value.trim(),
+        role: role,
+        subject: role === "teacher" ? subjectInput.value.trim() : null,
+        standard: role === "student" ? standardInput.value.trim() : null,
+        teacher_id: role === "student" ? (teacherDropdown.value || null) : null,
+        assigned_student_ids: role === "teacher" 
+            ? Array.from(studentMultiSelect.selectedOptions).map(o => o.value)
+            : null
+    };
+
+    try {
+        const response = await fetch("/admin/users", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
         });
-    </script>
-    <script src="/static/js/adminRegistration.js"></script>
-</body>
 
-</html>
+        const data = await response.json();
+
+        if (!response.ok) {
+            let errorMsg = data.detail;
+            if (Array.isArray(errorMsg)) errorMsg = errorMsg.map(x => x.msg).join(", ");
+            alertBox.className = "alert alert-danger";
+            alertBox.textContent = errorMsg || "Failed to create user.";
+            alertBox.style.display = "block";
+            return;
+        }
+
+        // Show credentials card
+        document.getElementById("formCard").style.display = "none";
+        document.getElementById("credEmail").textContent = data.email;
+        document.getElementById("credRole").textContent = data.role.toUpperCase();
+        document.getElementById("credTempPassword").textContent = data.temporary_password;
+        document.getElementById("credentialsCard").style.display = "block";
+
+    } catch (err) {
+        alertBox.className = "alert alert-danger";
+        alertBox.textContent = "Network error. Please try again.";
+        alertBox.style.display = "block";
+    } finally {
+        btn.disabled = false;
+        btn.textContent = "Create User & Auto-Generate Password";
+    }
+});
+
+function createNewAnother() {
+    document.getElementById("credentialsCard").style.display = "none";
+    document.getElementById("formCard").style.display = "block";
+    document.getElementById("adminUserForm").reset();
+    roleSelect.dispatchEvent(new Event("change"));
+    loadDropdownData();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    loadDropdownData();
+});
+</script>
+{% endblock %}
